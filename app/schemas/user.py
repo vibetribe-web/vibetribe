@@ -88,6 +88,23 @@ class UserUpdate(BaseModel):
         return skills
 
 
+class UsernameUpdate(BaseModel):
+    username: str = Field(..., min_length=3, max_length=30)
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not USERNAME_PATTERN.fullmatch(normalized):
+            raise ValueError("Username must be 3-30 lowercase letters, numbers, or underscores")
+        return normalized
+
+
+class UsernameUpdateResponse(BaseModel):
+    message: str
+    username: str
+
+
 class UserResponse(UserBase):
     id: int
     username: str | None = None

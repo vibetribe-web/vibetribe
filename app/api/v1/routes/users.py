@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.security import get_current_user
 from app.db.database import get_db
 from app.models.user import User
-from app.schemas.user import UserPublicResponse, UserRead, UserUpdate
+from app.schemas.user import UsernameUpdate, UsernameUpdateResponse, UserPublicResponse, UserRead, UserUpdate
 from app.services import user_service
 
 router = APIRouter()
@@ -22,6 +22,15 @@ def update_profile(
     current_user: User = Depends(get_current_user),
 ) -> User:
     return user_service.update_profile(db, current_user, payload)
+
+
+@router.patch("/me/username", response_model=UsernameUpdateResponse)
+def update_username(
+    payload: UsernameUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UsernameUpdateResponse:
+    return user_service.update_username(db, current_user, payload)
 
 
 @router.get("/", response_model=list[UserPublicResponse])

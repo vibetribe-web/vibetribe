@@ -1,10 +1,12 @@
+from fastapi import status
 from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import AppException
 from app.models.branch import Branch
 from app.models.college import College
 from app.models.user import User
-from app.schemas.user import UserUpdate
+from app.schemas.user import UsernameUpdate, UsernameUpdateResponse, UserUpdate
 from app.services.taxonomy_service import (
     get_or_create_branch,
     get_or_create_college,
@@ -49,3 +51,20 @@ def update_profile(db: Session, user: User, payload: UserUpdate) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def update_username(db: Session, user: User, payload: UsernameUpdate) -> UsernameUpdateResponse:
+    existing_user = db.scalar(
+        select(User).where(User.username == payload.username, User.id != user.id)
+    )
+    if existing_user:
+        raise AppException("Username already exists", status.HTTP_409_CONFLICT)
+
+    user.username = payload.username
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return UsernameUpdateResponse(
+        message="Username updated successfully",
+        username=user.username,
+    )
