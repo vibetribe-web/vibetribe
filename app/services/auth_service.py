@@ -27,9 +27,16 @@ def register_user(db: Session, payload: UserCreate) -> User:
             "A user with this email already exists",
             status.HTTP_409_CONFLICT,
         )
+    existing_username = db.scalar(select(User).where(User.username == payload.username))
+    if existing_username:
+        raise AppException(
+            "A user with this username already exists",
+            status.HTTP_409_CONFLICT,
+        )
 
     user = User(
         name=payload.name,
+        username=payload.username,
         email=payload.email.lower(),
         password_hash=hash_password(payload.password),
         college_ref=get_or_create_college(db, payload.college),

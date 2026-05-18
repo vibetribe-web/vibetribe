@@ -1,4 +1,9 @@
+import re
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+USERNAME_PATTERN = re.compile(r"^[a-z0-9_]{3,30}$")
 
 
 class UserBase(BaseModel):
@@ -40,7 +45,16 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
+    username: str = Field(..., min_length=3, max_length=30)
     password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not USERNAME_PATTERN.fullmatch(normalized):
+            raise ValueError("Username must be 3-30 lowercase letters, numbers, or underscores")
+        return normalized
 
 
 class UserUpdate(BaseModel):
@@ -76,6 +90,7 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    username: str | None = None
     is_admin: bool
     auth_provider: str
     profile_image_url: str | None = None
@@ -84,6 +99,19 @@ class UserResponse(UserBase):
 
 
 UserRead = UserResponse
+
+
+class UserPublicResponse(BaseModel):
+    id: int
+    name: str
+    username: str | None = None
+    college: str | None = None
+    branch: str | None = None
+    year: int | None = None
+    skills: list[str] = Field(default_factory=list)
+    profile_image_url: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserLogin(BaseModel):

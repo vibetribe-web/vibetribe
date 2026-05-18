@@ -1,6 +1,8 @@
-from sqlalchemy import select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
+from app.models.branch import Branch
+from app.models.college import College
 from app.models.user import User
 from app.schemas.user import UserUpdate
 from app.services.taxonomy_service import (
@@ -10,8 +12,25 @@ from app.services.taxonomy_service import (
 )
 
 
-def list_users(db: Session) -> list[User]:
-    return list(db.scalars(select(User).order_by(User.id)))
+def list_users(db: Session, search: str | None = None) -> list[User]:
+    statement = (
+        select(User)
+        .outerjoin(User.branch_ref)
+        .outerjoin(User.college_ref)
+        .order_by(User.name, User.id)
+    )
+    if search:
+        term = f"%{search.strip().lower()}%"
+        statement = statement.where(
+            or_(
+                User.name.ilike(term),
+                User.username.ilike(term),
+                Branch.name.ilike(term),
+                College.name.ilike(term),
+                cast(User.year, String).ilike(term),
+            )
+        )
+    return list(db.scalars(statement))
 
 
 def update_profile(db: Session, user: User, payload: UserUpdate) -> User:
