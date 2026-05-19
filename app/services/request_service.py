@@ -25,6 +25,9 @@ def create_join_request(
             status.HTTP_409_CONFLICT,
         )
 
+    if team_service.get_member_count(db, payload.team_id) >= team.max_members:
+        raise AppException("Team is already full", status.HTTP_400_BAD_REQUEST)
+
     existing_request = db.scalar(
         select(JoinRequest).where(
             JoinRequest.team_id == payload.team_id,

@@ -69,9 +69,26 @@ class TeamUpdate(BaseModel):
         return skills
 
 
+class TeamMemberRead(BaseModel):
+    user_id: int
+    name: str
+    email: str
+    username: str | None = None
+    profile_image_url: str | None = None
+    role: TeamMemberRole
+    joined_at: datetime
+
+
 class TeamResponse(TeamBase):
     id: int
     leader_id: int
+    leader: UserRead | None = None
+    current_members_count: int = 0
+    available_slots: int = 0
+    members: list[TeamMemberRead] = Field(default_factory=list)
+    is_current_user_member: bool = False
+    is_current_user_leader: bool = False
+    has_pending_request: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -80,7 +97,7 @@ TeamRead = TeamResponse
 
 
 class TeamDetail(TeamRead):
-    leader: UserRead
+    pass
 
 
 class TeamWorkflowResponse(BaseModel):
@@ -91,10 +108,3 @@ class TeamWorkflowResponse(BaseModel):
     request_status: RequestStatus | None = None
     message: str
 
-
-class TeamMemberRead(BaseModel):
-    user_id: int
-    name: str
-    email: str
-    role: TeamMemberRole
-    joined_at: datetime

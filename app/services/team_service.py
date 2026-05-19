@@ -1,13 +1,13 @@
 from fastapi import status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import AppException
-from app.models.request import RequestStatus
+from app.models.request import JoinRequest, RequestStatus
 from app.models.team import Team
 from app.models.team_member import TeamMember, TeamMemberRole
 from app.models.user import User
-from app.schemas.team import TeamCreate, TeamMemberRead, TeamUpdate, TeamWorkflowResponse
+from app.schemas.team import TeamCreate, TeamDetail, TeamMemberRead, TeamRead, TeamUpdate, TeamWorkflowResponse
 from app.services.taxonomy_service import get_or_create_skills
 
 
@@ -32,8 +32,20 @@ def create_team(db: Session, payload: TeamCreate, leader: User) -> TeamWorkflowR
     )
 
 
-def list_teams(db: Session) -> list[Team]:
-    return list(db.scalars(select(Team).order_by(Team.id)))
+def list_teams(db: Session, user: User) -> list[TeamRead]:
+    teams = list(
+        db.scalars(
+            select(Team)
+            .options(
+                selectinload(Team.leader),
+                selectinload(Team.memberships).selectinload(TeamMember.user),
+                selectinload(Team.required_skill_entities),
+            )
+            .order_by(Team.id)
+        )
+    )
+    pending_team_ids = get_pending_request_team_ids(db, user.id)
+    return [build_team_response(team, user, pending_team_ids) for team in teams]
 
 
 def get_team(db: Session, team_id: int) -> Team:
@@ -41,6 +53,22 @@ def get_team(db: Session, team_id: int) -> Team:
     if team is None:
         raise AppException("Team not found", status.HTTP_404_NOT_FOUND)
     return team
+
+
+def get_team_detail(db: Session, team_id: int, user: User) -> TeamDetail:
+    team = db.scalar(
+        select(Team)
+        .where(Team.id == team_id)
+        .options(
+            selectinload(Team.leader),
+            selectinload(Team.memberships).selectinload(TeamMember.user),
+            selectinload(Team.required_skill_entities),
+        )
+    )
+    if team is None:
+        raise AppException("Team not found", status.HTTP_404_NOT_FOUND)
+    pending_team_ids = get_pending_request_team_ids(db, user.id)
+    return TeamDetail.model_validate(build_team_response(team, user, pending_team_ids))
 
 
 def get_member_count(db: Session, team_id: int) -> int:
@@ -60,6 +88,17 @@ def get_membership(db: Session, team_id: int, user_id: int) -> TeamMember | None
 
 def is_team_member(db: Session, team_id: int, user_id: int) -> bool:
     return get_membership(db, team_id, user_id) is not None
+
+
+def get_pending_request_team_ids(db: Session, user_id: int) -> set[int]:
+    return set(
+        db.scalars(
+            select(JoinRequest.team_id).where(
+                JoinRequest.from_user_id == user_id,
+                JoinRequest.status == RequestStatus.pending,
+            )
+        )
+    )
 
 
 def ensure_team_leader(db: Session, team_id: int, user: User) -> TeamMember:
@@ -82,6 +121,49 @@ def build_team_workflow_response(
         max_members=team.max_members,
         request_status=request_status,
         message=message,
+    )
+
+
+def build_team_member_read(membership: TeamMember) -> TeamMemberRead:
+    return TeamMemberRead(
+        user_id=membership.user_id,
+        name=membership.user.name,
+        email=membership.user.email,
+        username=membership.user.username,
+        profile_image_url=membership.user.profile_image_url,
+        role=membership.role,
+        joined_at=membership.joined_at,
+    )
+
+
+def build_team_response(team: Team, user: User, pending_team_ids: set[int]) -> TeamRead:
+    members = [
+        build_team_member_read(membership)
+        for membership in sorted(
+            team.memberships,
+            key=lambda membership: (
+                0 if membership.role == TeamMemberRole.leader else 1,
+                membership.user.name.lower(),
+            ),
+        )
+    ]
+    current_members_count = len(members)
+    is_current_user_leader = team.leader_id == user.id
+    is_current_user_member = any(member.user_id == user.id for member in members)
+    return TeamRead(
+        id=team.id,
+        name=team.name,
+        description=team.description,
+        required_skills=team.required_skills,
+        max_members=team.max_members,
+        leader_id=team.leader_id,
+        leader=team.leader,
+        current_members_count=current_members_count,
+        available_slots=max(team.max_members - current_members_count, 0),
+        members=members,
+        is_current_user_member=is_current_user_member,
+        is_current_user_leader=is_current_user_leader,
+        has_pending_request=team.id in pending_team_ids,
     )
 
 
@@ -114,19 +196,10 @@ def list_team_members(db: Session, team_id: int) -> list[TeamMemberRead]:
             .order_by(TeamMember.role, User.name)
         )
     )
-    return [
-        TeamMemberRead(
-            user_id=membership.user_id,
-            name=membership.user.name,
-            email=membership.user.email,
-            role=membership.role,
-            joined_at=membership.joined_at,
-        )
-        for membership in memberships
-    ]
+    return [build_team_member_read(membership) for membership in memberships]
 
 
-def update_team(db: Session, team_id: int, payload: TeamUpdate, user: User) -> Team:
+def update_team(db: Session, team_id: int, payload: TeamUpdate, user: User) -> TeamRead:
     team = get_team(db, team_id)
     ensure_team_leader(db, team_id, user)
 
@@ -141,5 +214,16 @@ def update_team(db: Session, team_id: int, payload: TeamUpdate, user: User) -> T
         team.required_skill_entities = get_or_create_skills(db, values["required_skills"])
     db.add(team)
     db.commit()
-    db.refresh(team)
-    return team
+    pending_team_ids = get_pending_request_team_ids(db, user.id)
+    refreshed_team = db.scalar(
+        select(Team)
+        .where(Team.id == team.id)
+        .options(
+            selectinload(Team.leader),
+            selectinload(Team.memberships).selectinload(TeamMember.user),
+            selectinload(Team.required_skill_entities),
+        )
+    )
+    if refreshed_team is None:
+        raise AppException("Team not found", status.HTTP_404_NOT_FOUND)
+    return build_team_response(refreshed_team, user, pending_team_ids)

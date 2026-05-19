@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
 from app.db.database import get_db
-from app.models.team import Team
 from app.models.user import User
 from app.schemas.request import JoinRequestRead
 from app.schemas.team import (
@@ -30,8 +29,11 @@ def create_team(
 
 
 @router.get("/", response_model=list[TeamRead])
-def list_teams(db: Session = Depends(get_db)) -> list[Team]:
-    return team_service.list_teams(db)
+def list_teams(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[TeamRead]:
+    return team_service.list_teams(db, current_user)
 
 
 @router.get("/my-teams", response_model=list[TeamWorkflowResponse])
@@ -43,8 +45,12 @@ def list_my_teams(
 
 
 @router.get("/{team_id}", response_model=TeamDetail)
-def get_team(team_id: int, db: Session = Depends(get_db)) -> Team:
-    return team_service.get_team(db, team_id)
+def get_team(
+    team_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TeamDetail:
+    return team_service.get_team_detail(db, team_id, current_user)
 
 
 @router.get("/{team_id}/members", response_model=list[TeamMemberRead])
@@ -101,5 +107,5 @@ def update_team(
     payload: TeamUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Team:
+) -> TeamRead:
     return team_service.update_team(db, team_id, payload, current_user)
