@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from app.models.event import EventMode, EventType
 from app.models.team_message import TeamMessageType
@@ -19,7 +19,7 @@ class TeamMessageCreate(BaseModel):
 
 
 class TeamEventShareCreate(BaseModel):
-    event_id: int
+    event_id: int = Field(validation_alias=AliasChoices("event_id", "shared_event_id"))
     content: str | None = Field(default=None, max_length=8000)
 
     @field_validator("content")
@@ -48,6 +48,8 @@ class TeamMessageEventRead(BaseModel):
     start_date: datetime
     end_date: datetime
     image_url: str | None = None
+    venue: str | None = None
+    description: str
     club_id: int
     club_name: str
 
@@ -55,8 +57,15 @@ class TeamMessageEventRead(BaseModel):
 class TeamMessageRead(BaseModel):
     id: int
     team_id: int
+    shared_event_id: int | None = None
     sender: TeamMessageSenderRead
     message_type: TeamMessageType
     content: str | None
     event: TeamMessageEventRead | None = None
     created_at: datetime
+
+
+class TeamMessagePage(BaseModel):
+    items: list[TeamMessageRead]
+    has_more: bool
+    next_before_id: int | None = None

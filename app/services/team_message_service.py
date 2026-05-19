@@ -10,6 +10,7 @@ from app.schemas.team_message import (
     TeamEventShareCreate,
     TeamMessageCreate,
     TeamMessageEventRead,
+    TeamMessagePage,
     TeamMessageRead,
     TeamMessageSenderRead,
 )
@@ -22,20 +23,36 @@ def ensure_team_member(db: Session, team_id: int, user: User) -> None:
         raise AppException("Only team members can access team conversations", status.HTTP_403_FORBIDDEN)
 
 
-def list_messages(db: Session, team_id: int, user: User) -> list[TeamMessageRead]:
+def list_messages(
+    db: Session,
+    team_id: int,
+    user: User,
+    limit: int = 50,
+    before_id: int | None = None,
+) -> TeamMessagePage:
     ensure_team_member(db, team_id, user)
-    messages = list(
-        db.scalars(
-            select(TeamMessage)
-            .where(TeamMessage.team_id == team_id)
-            .options(
-                joinedload(TeamMessage.sender),
-                joinedload(TeamMessage.event).joinedload(Event.club),
-            )
-            .order_by(TeamMessage.created_at.asc(), TeamMessage.id.asc())
+    query = (
+        select(TeamMessage)
+        .where(TeamMessage.team_id == team_id)
+        .options(
+            joinedload(TeamMessage.sender),
+            joinedload(TeamMessage.event).joinedload(Event.club),
         )
+        .order_by(TeamMessage.id.desc())
+        .limit(limit + 1)
     )
-    return [build_message_response(message) for message in messages]
+    if before_id is not None:
+        query = query.where(TeamMessage.id < before_id)
+
+    messages = list(db.scalars(query))
+    has_more = len(messages) > limit
+    page_messages = messages[:limit]
+    page_messages.reverse()
+    return TeamMessagePage(
+        items=[build_message_response(message) for message in page_messages],
+        has_more=has_more,
+        next_before_id=page_messages[0].id if has_more and page_messages else None,
+    )
 
 
 def create_text_message(
@@ -73,7 +90,7 @@ def share_event(
         sender_id=user.id,
         message_type=TeamMessageType.event_share,
         content=payload.content,
-        event_id=event.id,
+        shared_event_id=event.id,
     )
     db.add(message)
     db.commit()
@@ -106,6 +123,8 @@ def build_message_response(message: TeamMessage) -> TeamMessageRead:
             start_date=message.event.start_date,
             end_date=message.event.end_date,
             image_url=message.event.image_url,
+            venue=message.event.venue,
+            description=message.event.description,
             club_id=message.event.club_id,
             club_name=message.event.club.name if message.event.club else "Unknown club",
         )
@@ -113,6 +132,7 @@ def build_message_response(message: TeamMessage) -> TeamMessageRead:
     return TeamMessageRead(
         id=message.id,
         team_id=message.team_id,
+        shared_event_id=message.shared_event_id,
         sender=TeamMessageSenderRead.model_validate(message.sender),
         message_type=message.message_type,
         content=message.content,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
@@ -14,7 +14,7 @@ from app.schemas.team import (
     TeamUpdate,
     TeamWorkflowResponse,
 )
-from app.schemas.team_message import TeamEventShareCreate, TeamMessageCreate, TeamMessageRead
+from app.schemas.team_message import TeamEventShareCreate, TeamMessageCreate, TeamMessagePage, TeamMessageRead
 from app.services import request_service, team_message_service, team_service
 
 router = APIRouter()
@@ -55,13 +55,15 @@ def list_team_members(
     return team_service.list_team_members(db, team_id)
 
 
-@router.get("/{team_id}/messages", response_model=list[TeamMessageRead])
+@router.get("/{team_id}/messages", response_model=TeamMessagePage)
 def list_team_messages(
     team_id: int,
+    limit: int = Query(default=50, ge=1, le=100),
+    before_id: int | None = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[TeamMessageRead]:
-    return team_message_service.list_messages(db, team_id, current_user)
+) -> TeamMessagePage:
+    return team_message_service.list_messages(db, team_id, current_user, limit, before_id)
 
 
 @router.post("/{team_id}/messages", response_model=TeamMessageRead, status_code=status.HTTP_201_CREATED)

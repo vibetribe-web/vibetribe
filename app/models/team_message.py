@@ -22,7 +22,7 @@ class TeamMessage(Base):
             name="ck_team_messages_text_content_required",
         ),
         CheckConstraint(
-            "(message_type <> 'event_share') OR (event_id IS NOT NULL)",
+            "(message_type <> 'event_share') OR (shared_event_id IS NOT NULL)",
             name="ck_team_messages_event_share_event_required",
         ),
     )
@@ -41,7 +41,7 @@ class TeamMessage(Base):
         nullable=False,
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
-    event_id: Mapped[int | None] = mapped_column(
+    shared_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("events.id", ondelete="CASCADE"),
         nullable=True,
     )
