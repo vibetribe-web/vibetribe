@@ -7,6 +7,7 @@ from app.models.event import Event, EventMode, EventType
 from app.models.request import JoinRequest, RequestStatus
 from app.models.skill import Skill
 from app.models.team import Team
+from app.models.team_message import TeamMessage, TeamMessageType
 from app.models.team_member import TeamMember, TeamMemberRole
 from app.models.user import User
 
@@ -23,6 +24,8 @@ __all__ = [
     "RequestStatus",
     "Skill",
     "Team",
+    "TeamMessage",
+    "TeamMessageType",
     "TeamMember",
     "TeamMemberRole",
     "User",

@@ -90,6 +90,12 @@ class User(Base):
         foreign_keys="JoinRequest.from_user_id",
         passive_deletes=True,
     )
+    team_messages = relationship(
+        "TeamMessage",
+        back_populates="sender",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def college(self) -> str | None:

@@ -14,7 +14,8 @@ from app.schemas.team import (
     TeamUpdate,
     TeamWorkflowResponse,
 )
-from app.services import request_service, team_service
+from app.schemas.team_message import TeamEventShareCreate, TeamMessageCreate, TeamMessageRead
+from app.services import request_service, team_message_service, team_service
 
 router = APIRouter()
 
@@ -52,6 +53,35 @@ def list_team_members(
     db: Session = Depends(get_db),
 ) -> list[TeamMemberRead]:
     return team_service.list_team_members(db, team_id)
+
+
+@router.get("/{team_id}/messages", response_model=list[TeamMessageRead])
+def list_team_messages(
+    team_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[TeamMessageRead]:
+    return team_message_service.list_messages(db, team_id, current_user)
+
+
+@router.post("/{team_id}/messages", response_model=TeamMessageRead, status_code=status.HTTP_201_CREATED)
+def create_team_message(
+    team_id: int,
+    payload: TeamMessageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TeamMessageRead:
+    return team_message_service.create_text_message(db, team_id, payload, current_user)
+
+
+@router.post("/{team_id}/share-event", response_model=TeamMessageRead, status_code=status.HTTP_201_CREATED)
+def share_event_to_team(
+    team_id: int,
+    payload: TeamEventShareCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TeamMessageRead:
+    return team_message_service.share_event(db, team_id, payload, current_user)
 
 
 @router.get("/{team_id}/requests", response_model=list[JoinRequestRead])

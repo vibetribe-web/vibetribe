@@ -52,6 +52,12 @@ class Team(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    messages = relationship(
+        "TeamMessage",
+        back_populates="team",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def required_skills(self) -> list[str]:
