@@ -11,9 +11,12 @@ class TeamBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=160)
     description: str | None = Field(default=None, max_length=2000)
     required_skills: list[str] = Field(default_factory=list)
+    interests: list[str] = Field(default_factory=list)
+    preferred_roles: list[str] = Field(default_factory=list)
+    hackathon_category: str | None = Field(default=None, max_length=120)
     max_members: int = Field(default=5, ge=2, le=50)
 
-    @field_validator("name", "description")
+    @field_validator("name", "description", "hackathon_category")
     @classmethod
     def strip_optional_text(cls, value: str | None) -> str | None:
         if value is None:
@@ -24,6 +27,15 @@ class TeamBase(BaseModel):
     @field_validator("required_skills")
     @classmethod
     def normalize_required_skills(cls, value: list[str]) -> list[str]:
+        return normalize_text_list(value)
+
+    @field_validator("interests", "preferred_roles")
+    @classmethod
+    def normalize_optional_lists(cls, value: list[str]) -> list[str]:
+        return normalize_text_list(value)
+
+
+def normalize_text_list(value: list[str]) -> list[str]:
         skills = []
         seen = set()
         for skill in value:
@@ -43,9 +55,12 @@ class TeamUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=160)
     description: str | None = Field(default=None, max_length=2000)
     required_skills: list[str] | None = None
+    interests: list[str] | None = None
+    preferred_roles: list[str] | None = None
+    hackathon_category: str | None = Field(default=None, max_length=120)
     max_members: int | None = Field(default=None, ge=2, le=50)
 
-    @field_validator("name", "description")
+    @field_validator("name", "description", "hackathon_category")
     @classmethod
     def strip_optional_text(cls, value: str | None) -> str | None:
         if value is None:
@@ -58,15 +73,14 @@ class TeamUpdate(BaseModel):
     def normalize_required_skills(cls, value: list[str] | None) -> list[str] | None:
         if value is None:
             return value
-        skills = []
-        seen = set()
-        for skill in value:
-            normalized = skill.strip()
-            key = normalized.lower()
-            if normalized and key not in seen:
-                skills.append(normalized)
-                seen.add(key)
-        return skills
+        return normalize_text_list(value)
+
+    @field_validator("interests", "preferred_roles")
+    @classmethod
+    def normalize_optional_lists(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return value
+        return normalize_text_list(value)
 
 
 class TeamMemberRead(BaseModel):
@@ -107,4 +121,3 @@ class TeamWorkflowResponse(BaseModel):
     max_members: int
     request_status: RequestStatus | None = None
     message: str
-

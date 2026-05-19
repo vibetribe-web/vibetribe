@@ -24,3 +24,19 @@ class TeamRecommendation(BaseModel):
     breakdown: MatchBreakdown
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RecommendedTeamMember(BaseModel):
+    name: str
+    username: str | None = None
+
+
+class RecommendedTeamResponse(BaseModel):
+    team_id: int
+    team_name: str
+    match_score: int
+    open_slots: int
+    required_skills: list[str]
+    reasons: list[str]
+    reason_tags: list[str]
+    members: list[RecommendedTeamMember]

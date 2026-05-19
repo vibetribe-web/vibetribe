@@ -17,6 +17,9 @@ class Team(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    interests: Mapped[str | None] = mapped_column(Text, nullable=True)
+    preferred_roles: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hackathon_category: Mapped[str | None] = mapped_column(String(120), nullable=True)
     leader_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
@@ -64,5 +67,19 @@ class Team(Base):
         return [skill.name for skill in self.required_skill_entities]
 
     @property
+    def interest_list(self) -> list[str]:
+        return split_csv(self.interests)
+
+    @property
+    def preferred_role_list(self) -> list[str]:
+        return split_csv(self.preferred_roles)
+
+    @property
     def members(self) -> list["User"]:
         return [membership.user for membership in self.memberships]
+
+
+def split_csv(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]

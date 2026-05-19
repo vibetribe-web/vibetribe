@@ -15,6 +15,9 @@ def create_team(db: Session, payload: TeamCreate, leader: User) -> TeamWorkflowR
     team = Team(
         name=payload.name,
         description=payload.description,
+        interests=join_text_list(payload.interests),
+        preferred_roles=join_text_list(payload.preferred_roles),
+        hackathon_category=payload.hackathon_category,
         leader_id=leader.id,
         max_members=payload.max_members,
     )
@@ -155,6 +158,9 @@ def build_team_response(team: Team, user: User, pending_team_ids: set[int]) -> T
         name=team.name,
         description=team.description,
         required_skills=team.required_skills,
+        interests=team.interest_list,
+        preferred_roles=team.preferred_role_list,
+        hackathon_category=team.hackathon_category,
         max_members=team.max_members,
         leader_id=team.leader_id,
         leader=team.leader,
@@ -212,6 +218,12 @@ def update_team(db: Session, team_id: int, payload: TeamUpdate, user: User) -> T
         team.max_members = values["max_members"]
     if "required_skills" in values:
         team.required_skill_entities = get_or_create_skills(db, values["required_skills"])
+    if "interests" in values:
+        team.interests = join_text_list(values["interests"])
+    if "preferred_roles" in values:
+        team.preferred_roles = join_text_list(values["preferred_roles"])
+    if "hackathon_category" in values:
+        team.hackathon_category = values["hackathon_category"]
     db.add(team)
     db.commit()
     pending_team_ids = get_pending_request_team_ids(db, user.id)
@@ -227,3 +239,7 @@ def update_team(db: Session, team_id: int, payload: TeamUpdate, user: User) -> T
     if refreshed_team is None:
         raise AppException("Team not found", status.HTTP_404_NOT_FOUND)
     return build_team_response(refreshed_team, user, pending_team_ids)
+
+
+def join_text_list(values: list[str] | None) -> str | None:
+    return ", ".join(values) if values else None

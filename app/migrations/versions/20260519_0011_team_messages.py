@@ -15,11 +15,14 @@ down_revision: str | None = "20260518_0010"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-team_message_type = postgresql.ENUM("text", "event_share", name="team_message_type")
+team_message_type = postgresql.ENUM("text", "event_share", name="team_message_type", create_type=False)
 
 
 def upgrade() -> None:
-    team_message_type.create(op.get_bind(), checkfirst=True)
+    postgresql.ENUM("text", "event_share", name="team_message_type").create(
+        op.get_bind(),
+        checkfirst=True,
+    )
 
     op.create_table(
         "team_messages",

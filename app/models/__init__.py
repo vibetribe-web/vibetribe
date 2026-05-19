@@ -4,6 +4,7 @@ from app.models.club import Club
 from app.models.club_member import ClubMember, ClubMemberRole
 from app.models.college import College
 from app.models.event import Event, EventMode, EventType
+from app.models.event_interest import EventInterest
 from app.models.request import JoinRequest, RequestStatus
 from app.models.skill import Skill
 from app.models.team import Team
@@ -18,6 +19,7 @@ __all__ = [
     "ClubMemberRole",
     "College",
     "Event",
+    "EventInterest",
     "EventMode",
     "EventType",
     "JoinRequest",

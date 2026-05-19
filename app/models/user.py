@@ -83,6 +83,12 @@ class User(Base):
         back_populates="creator",
         foreign_keys="Event.created_by",
     )
+    event_interests = relationship(
+        "EventInterest",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     join_requests = relationship(
         "JoinRequest",
         back_populates="from_user",

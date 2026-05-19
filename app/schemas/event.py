@@ -68,6 +68,9 @@ class EventPublicResponse(BaseModel):
     end_date: datetime
     registration_link: str | None
     image_url: str | None
+    interested_count: int = 0
+    is_interested: bool = False
+    club: ClubPublicResponse | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -80,3 +83,9 @@ class EventDetailResponse(EventPublicResponse):
 
 class EventAdminResponse(EventPublicResponse):
     created_by: int
+
+
+class EventInterestResponse(BaseModel):
+    event_id: int
+    is_interested: bool
+    interested_count: int
