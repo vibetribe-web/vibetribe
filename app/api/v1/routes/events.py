@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.security import get_current_user
 from app.db.database import get_db
 from app.models.user import User
-from app.schemas.event import EventDetailResponse, EventInterestResponse, EventPublicResponse
+from app.schemas.event import EventDetailResponse, EventInterestResponse, EventPublicResponse, EventTeammateRecommendation
 from app.services import event_service
 
 router = APIRouter()
@@ -25,6 +25,15 @@ def get_event(
     current_user: User = Depends(get_current_user),
 ) -> EventPublicResponse:
     return event_service.get_public_event(db, event_id, current_user)
+
+
+@router.get("/{event_id}/teammates", response_model=list[EventTeammateRecommendation])
+def list_event_teammates(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[EventTeammateRecommendation]:
+    return event_service.list_event_teammates(db, event_id, current_user)
 
 
 @router.post("/{event_id}/interest", response_model=EventInterestResponse, status_code=status.HTTP_201_CREATED)

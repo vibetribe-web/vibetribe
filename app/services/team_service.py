@@ -3,6 +3,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import AppException
+from app.models.event import Event
 from app.models.request import JoinRequest, RequestStatus
 from app.models.team import Team
 from app.models.team_member import TeamMember, TeamMemberRole
@@ -12,12 +13,15 @@ from app.services.taxonomy_service import get_or_create_skills
 
 
 def create_team(db: Session, payload: TeamCreate, leader: User) -> TeamWorkflowResponse:
+    if payload.event_id is not None and db.get(Event, payload.event_id) is None:
+        raise AppException("Event not found", status.HTTP_404_NOT_FOUND)
     team = Team(
         name=payload.name,
         description=payload.description,
         interests=join_text_list(payload.interests),
         preferred_roles=join_text_list(payload.preferred_roles),
         hackathon_category=payload.hackathon_category,
+        event_id=payload.event_id,
         leader_id=leader.id,
         max_members=payload.max_members,
     )
@@ -41,6 +45,7 @@ def list_teams(db: Session, user: User) -> list[TeamRead]:
             select(Team)
             .options(
                 selectinload(Team.leader),
+                selectinload(Team.event),
                 selectinload(Team.memberships).selectinload(TeamMember.user),
                 selectinload(Team.required_skill_entities),
             )
@@ -64,6 +69,7 @@ def get_team_detail(db: Session, team_id: int, user: User) -> TeamDetail:
         .where(Team.id == team_id)
         .options(
             selectinload(Team.leader),
+            selectinload(Team.event),
             selectinload(Team.memberships).selectinload(TeamMember.user),
             selectinload(Team.required_skill_entities),
         )
@@ -161,9 +167,11 @@ def build_team_response(team: Team, user: User, pending_team_ids: set[int]) -> T
         interests=team.interest_list,
         preferred_roles=team.preferred_role_list,
         hackathon_category=team.hackathon_category,
+        event_id=team.event_id,
         max_members=team.max_members,
         leader_id=team.leader_id,
         leader=team.leader,
+        event=team.event,
         current_members_count=current_members_count,
         available_slots=max(team.max_members - current_members_count, 0),
         members=members,
@@ -224,6 +232,10 @@ def update_team(db: Session, team_id: int, payload: TeamUpdate, user: User) -> T
         team.preferred_roles = join_text_list(values["preferred_roles"])
     if "hackathon_category" in values:
         team.hackathon_category = values["hackathon_category"]
+    if "event_id" in values:
+        if values["event_id"] is not None and db.get(Event, values["event_id"]) is None:
+            raise AppException("Event not found", status.HTTP_404_NOT_FOUND)
+        team.event_id = values["event_id"]
     db.add(team)
     db.commit()
     pending_team_ids = get_pending_request_team_ids(db, user.id)
@@ -232,6 +244,7 @@ def update_team(db: Session, team_id: int, payload: TeamUpdate, user: User) -> T
         .where(Team.id == team.id)
         .options(
             selectinload(Team.leader),
+            selectinload(Team.event),
             selectinload(Team.memberships).selectinload(TeamMember.user),
             selectinload(Team.required_skill_entities),
         )

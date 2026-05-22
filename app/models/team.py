@@ -24,6 +24,11 @@ class Team(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
+    event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("events.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     max_members: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -38,6 +43,7 @@ class Team(Base):
     )
 
     leader = relationship("User", back_populates="teams_led")
+    event = relationship("Event", back_populates="teams")
     required_skill_entities = relationship(
         "Skill",
         secondary=team_required_skills,

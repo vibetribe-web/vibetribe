@@ -89,3 +89,16 @@ class EventInterestResponse(BaseModel):
     event_id: int
     is_interested: bool
     interested_count: int
+
+
+class EventTeammateRecommendation(BaseModel):
+    id: int
+    name: str
+    username: str | None = None
+    college: str | None = None
+    branch: str | None = None
+    year: int | None = None
+    skills: list[str] = Field(default_factory=list)
+    profile_image_url: str | None = None
+    match_score: int
+    reason_tags: list[str] = Field(default_factory=list)

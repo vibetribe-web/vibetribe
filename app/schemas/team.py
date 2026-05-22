@@ -14,6 +14,7 @@ class TeamBase(BaseModel):
     interests: list[str] = Field(default_factory=list)
     preferred_roles: list[str] = Field(default_factory=list)
     hackathon_category: str | None = Field(default=None, max_length=120)
+    event_id: int | None = Field(default=None, gt=0)
     max_members: int = Field(default=5, ge=2, le=50)
 
     @field_validator("name", "description", "hackathon_category")
@@ -58,6 +59,7 @@ class TeamUpdate(BaseModel):
     interests: list[str] | None = None
     preferred_roles: list[str] | None = None
     hackathon_category: str | None = Field(default=None, max_length=120)
+    event_id: int | None = Field(default=None, gt=0)
     max_members: int | None = Field(default=None, ge=2, le=50)
 
     @field_validator("name", "description", "hackathon_category")
@@ -93,10 +95,20 @@ class TeamMemberRead(BaseModel):
     joined_at: datetime
 
 
+class TeamEventSummary(BaseModel):
+    id: int
+    title: str
+    event_type: str
+    start_date: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TeamResponse(TeamBase):
     id: int
     leader_id: int
     leader: UserRead | None = None
+    event: TeamEventSummary | None = None
     current_members_count: int = 0
     available_slots: int = 0
     members: list[TeamMemberRead] = Field(default_factory=list)

@@ -2,10 +2,11 @@ from datetime import datetime, timezone
 
 from fastapi import status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.exceptions import AppException
 from app.models.request import JoinRequest, RequestStatus
+from app.models.team import Team
 from app.models.team_member import TeamMember, TeamMemberRole
 from app.models.user import User
 from app.schemas.request import JoinRequestCreate, JoinRequestRespond
@@ -61,6 +62,10 @@ def list_my_requests(db: Session, user: User) -> list[JoinRequest]:
     return list(
         db.scalars(
             select(JoinRequest)
+            .options(
+                joinedload(JoinRequest.team).load_only(Team.id, Team.name),
+                joinedload(JoinRequest.from_user).load_only(User.id, User.username, User.name),
+            )
             .where(JoinRequest.from_user_id == user.id)
             .order_by(JoinRequest.id.desc())
         )
@@ -74,6 +79,10 @@ def list_team_requests(db: Session, team_id: int, user: User) -> list[JoinReques
     return list(
         db.scalars(
             select(JoinRequest)
+            .options(
+                joinedload(JoinRequest.team).load_only(Team.id, Team.name),
+                joinedload(JoinRequest.from_user).load_only(User.id, User.username, User.name),
+            )
             .where(JoinRequest.team_id == team_id)
             .order_by(JoinRequest.id.desc())
         )

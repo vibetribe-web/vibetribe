@@ -7,7 +7,8 @@ from app.models.club import Club
 from app.models.event import Event
 from app.models.event_interest import EventInterest
 from app.models.user import User
-from app.schemas.event import EventCreate, EventInterestResponse, EventPublicResponse, EventUpdate
+from app.models.team_member import TeamMember
+from app.schemas.event import EventCreate, EventInterestResponse, EventPublicResponse, EventTeammateRecommendation, EventUpdate
 from app.services import club_service
 
 
@@ -191,6 +192,35 @@ def remove_interest(db: Session, event_id: int, user: User) -> EventInterestResp
     return build_interest_response(db, event.id, False)
 
 
+def list_event_teammates(db: Session, event_id: int, user: User) -> list[EventTeammateRecommendation]:
+    get_public_event_model(db, event_id)
+    interested_users = list(
+        db.scalars(
+            select(User)
+            .join(EventInterest, EventInterest.user_id == User.id)
+            .options(
+                selectinload(User.skill_entities),
+                selectinload(User.college_ref),
+                selectinload(User.branch_ref),
+            )
+            .where(EventInterest.event_id == event_id, User.id != user.id)
+        )
+    )
+    current_skills = {skill.lower() for skill in user.skills}
+    busy_user_ids = set(
+        db.scalars(
+            select(TeamMember.user_id)
+            .join(TeamMember.team)
+            .where(TeamMember.user_id.in_([candidate.id for candidate in interested_users]))
+        )
+    )
+    recommendations = [
+        build_teammate_recommendation(candidate, user, current_skills, candidate.id not in busy_user_ids)
+        for candidate in interested_users
+    ]
+    return sorted(recommendations, key=lambda item: (-item.match_score, item.name.lower()))
+
+
 def get_public_event_model(db: Session, event_id: int) -> Event:
     event = db.scalar(
         select(Event)
@@ -263,4 +293,43 @@ def build_interest_response(db: Session, event_id: int, is_interested: bool) -> 
         event_id=event_id,
         is_interested=is_interested,
         interested_count=count,
+    )
+
+
+def build_teammate_recommendation(
+    candidate: User,
+    user: User,
+    current_skills: set[str],
+    available: bool,
+) -> EventTeammateRecommendation:
+    score = 40
+    tags = ["Same event"]
+    candidate_skills = candidate.skills
+    complementary = [skill for skill in candidate_skills if skill.lower() not in current_skills]
+    if complementary:
+        score += min(25, len(complementary) * 8)
+        tags.append("Complementary skills")
+    if candidate.college and candidate.college == user.college:
+        score += 12
+        tags.append("Same college")
+    if candidate.branch and candidate.branch == user.branch:
+        score += 10
+        tags.append("Same branch")
+    if candidate.year and candidate.year == user.year:
+        score += 8
+        tags.append("Same year")
+    if available:
+        score += 10
+        tags.append("Likely available")
+    return EventTeammateRecommendation(
+        id=candidate.id,
+        name=candidate.name,
+        username=candidate.username,
+        college=candidate.college,
+        branch=candidate.branch,
+        year=candidate.year,
+        skills=candidate_skills,
+        profile_image_url=candidate.profile_image_url,
+        match_score=min(score, 100),
+        reason_tags=tags,
     )

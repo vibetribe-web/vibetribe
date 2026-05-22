@@ -66,6 +66,7 @@ class Event(Base):
     club = relationship("Club", back_populates="events")
     creator = relationship("User", back_populates="events_created")
     team_messages = relationship("TeamMessage", back_populates="event", passive_deletes=True)
+    teams = relationship("Team", back_populates="event", passive_deletes=True)
     interests = relationship(
         "EventInterest",
         back_populates="event",
