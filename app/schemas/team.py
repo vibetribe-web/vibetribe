@@ -95,6 +95,10 @@ class TeamMemberRead(BaseModel):
     joined_at: datetime
 
 
+class TeamMemberRoleUpdate(BaseModel):
+    role: TeamMemberRole
+
+
 class TeamEventSummary(BaseModel):
     id: int
     title: str

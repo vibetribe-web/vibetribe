@@ -157,8 +157,9 @@ def build_team_response(team: Team, user: User, pending_team_ids: set[int]) -> T
         )
     ]
     current_members_count = len(members)
-    is_current_user_leader = team.leader_id == user.id
-    is_current_user_member = any(member.user_id == user.id for member in members)
+    current_membership = next((membership for membership in team.memberships if membership.user_id == user.id), None)
+    is_current_user_member = current_membership is not None
+    is_current_user_leader = current_membership is not None and current_membership.role == TeamMemberRole.leader
     return TeamRead(
         id=team.id,
         name=team.name,
@@ -252,6 +253,101 @@ def update_team(db: Session, team_id: int, payload: TeamUpdate, user: User) -> T
     if refreshed_team is None:
         raise AppException("Team not found", status.HTTP_404_NOT_FOUND)
     return build_team_response(refreshed_team, user, pending_team_ids)
+
+
+def add_team_member(db: Session, team_id: int, user_id: int, user: User) -> TeamRead:
+    team = get_team(db, team_id)
+    ensure_team_leader(db, team_id, user)
+    candidate = db.get(User, user_id)
+    if candidate is None:
+        raise AppException("User not found", status.HTTP_404_NOT_FOUND)
+    if get_membership(db, team_id, user_id) is not None:
+        raise AppException("User is already a team member", status.HTTP_409_CONFLICT)
+    if get_member_count(db, team_id) >= team.max_members:
+        raise AppException("Team is already full", status.HTTP_400_BAD_REQUEST)
+
+    db.add(TeamMember(team_id=team_id, user_id=user_id, role=TeamMemberRole.member))
+    db.commit()
+    return get_team_detail(db, team_id, user)
+
+
+def remove_team_member(db: Session, team_id: int, user_id: int, user: User) -> TeamRead:
+    team = get_team(db, team_id)
+    ensure_team_leader(db, team_id, user)
+    membership = get_membership(db, team_id, user_id)
+    if membership is None:
+        raise AppException("Team member not found", status.HTTP_404_NOT_FOUND)
+    if membership.role == TeamMemberRole.leader and get_leader_count(db, team_id) <= 1:
+        raise AppException("Team must keep at least one leader", status.HTTP_400_BAD_REQUEST)
+
+    db.delete(membership)
+    if team.leader_id == user_id:
+        replacement_leader_id = db.scalar(
+            select(TeamMember.user_id)
+            .where(
+                TeamMember.team_id == team_id,
+                TeamMember.user_id != user_id,
+                TeamMember.role == TeamMemberRole.leader,
+            )
+            .order_by(TeamMember.joined_at)
+        )
+        if replacement_leader_id is not None:
+            team.leader_id = replacement_leader_id
+    db.add(team)
+    db.commit()
+    return get_team_detail(db, team_id, user)
+
+
+def update_team_member_role(
+    db: Session,
+    team_id: int,
+    user_id: int,
+    role: TeamMemberRole,
+    user: User,
+) -> TeamRead:
+    team = get_team(db, team_id)
+    ensure_team_leader(db, team_id, user)
+    membership = get_membership(db, team_id, user_id)
+    if membership is None:
+        raise AppException("Team member not found", status.HTTP_404_NOT_FOUND)
+    if membership.role == role:
+        return get_team_detail(db, team_id, user)
+    if membership.role == TeamMemberRole.leader and role != TeamMemberRole.leader and get_leader_count(db, team_id) <= 1:
+        raise AppException("Team must keep at least one leader", status.HTTP_400_BAD_REQUEST)
+
+    membership.role = role
+    if role == TeamMemberRole.leader and team.leader_id is None:
+        team.leader_id = user_id
+    if role != TeamMemberRole.leader and team.leader_id == user_id:
+        replacement_leader_id = db.scalar(
+            select(TeamMember.user_id)
+            .where(
+                TeamMember.team_id == team_id,
+                TeamMember.user_id != user_id,
+                TeamMember.role == TeamMemberRole.leader,
+            )
+            .order_by(TeamMember.joined_at)
+        )
+        if replacement_leader_id is not None:
+            team.leader_id = replacement_leader_id
+
+    db.add_all([team, membership])
+    db.commit()
+    return get_team_detail(db, team_id, user)
+
+
+def get_leader_count(db: Session, team_id: int) -> int:
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(TeamMember)
+            .where(
+                TeamMember.team_id == team_id,
+                TeamMember.role == TeamMemberRole.leader,
+            )
+        )
+        or 0
+    )
 
 
 def join_text_list(values: list[str] | None) -> str | None:

@@ -9,6 +9,7 @@ from app.schemas.team import (
     TeamCreate,
     TeamDetail,
     TeamMemberRead,
+    TeamMemberRoleUpdate,
     TeamRead,
     TeamUpdate,
     TeamWorkflowResponse,
@@ -59,6 +60,37 @@ def list_team_members(
     db: Session = Depends(get_db),
 ) -> list[TeamMemberRead]:
     return team_service.list_team_members(db, team_id)
+
+
+@router.post("/{team_id}/members/{user_id}", response_model=TeamRead)
+def add_team_member(
+    team_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TeamRead:
+    return team_service.add_team_member(db, team_id, user_id, current_user)
+
+
+@router.delete("/{team_id}/members/{user_id}", response_model=TeamRead)
+def remove_team_member(
+    team_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TeamRead:
+    return team_service.remove_team_member(db, team_id, user_id, current_user)
+
+
+@router.patch("/{team_id}/members/{user_id}/role", response_model=TeamRead)
+def update_team_member_role(
+    team_id: int,
+    user_id: int,
+    payload: TeamMemberRoleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TeamRead:
+    return team_service.update_team_member_role(db, team_id, user_id, payload.role, current_user)
 
 
 @router.get("/{team_id}/messages", response_model=TeamMessagePage)
