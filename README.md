@@ -48,7 +48,11 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://127.0.0.1:8000/api/v1/auth/google/callback
 FRONTEND_AUTH_SUCCESS_URL=
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 ```
+
+Event poster uploads use Supabase Storage bucket `event-posters`. The backend creates one-time signed upload tokens after VibeTribe authentication and club membership checks; the bucket should be public-read so stored poster URLs can render in event cards.
 
 ## Install and migrate
 
@@ -105,6 +109,8 @@ Render setup:
    GOOGLE_CLIENT_SECRET=<google-client-secret>
    GOOGLE_REDIRECT_URI=https://your-render-service.onrender.com/api/v1/auth/google/callback
    FRONTEND_AUTH_SUCCESS_URL=
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
    ```
 6. Run migrations after deploy from a Render shell or locally against the production database:
    ```bash

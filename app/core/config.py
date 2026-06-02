@@ -19,6 +19,8 @@ class Settings:
     google_client_secret: str | None
     google_redirect_uri: str
     frontend_auth_success_url: str | None
+    supabase_url: str | None
+    supabase_service_role_key: str | None
 
 
 def _required_env(name: str) -> str:
@@ -50,6 +52,8 @@ def get_settings() -> Settings:
             "http://127.0.0.1:8000/api/v1/auth/google/callback",
         ),
         frontend_auth_success_url=os.getenv("FRONTEND_AUTH_SUCCESS_URL"),
+        supabase_url=os.getenv("SUPABASE_URL"),
+        supabase_service_role_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
     )
 
 

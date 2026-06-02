@@ -26,7 +26,7 @@ class RequestTeamSummary(BaseModel):
 class RequestUserSummary(BaseModel):
     id: int
     username: str | None = None
-    full_name: str | None = Field(default=None, alias="name")
+    full_name: str | None = Field(default=None, validation_alias="name")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 

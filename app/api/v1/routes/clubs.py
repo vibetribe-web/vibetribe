@@ -7,8 +7,8 @@ from app.models.club import Club
 from app.models.event import Event
 from app.models.user import User
 from app.schemas.club import ClubMemberActionResponse, ClubMemberResponse, ClubPublicResponse
-from app.schemas.event import EventCreate, EventPublicResponse, EventUpdate
-from app.services import club_service, event_service
+from app.schemas.event import EventCreate, EventPosterUploadRequest, EventPosterUploadResponse, EventPublicResponse, EventUpdate
+from app.services import club_service, event_service, storage_service
 
 router = APIRouter()
 
@@ -75,6 +75,18 @@ def list_members(
 @router.get("/{club_id}/events", response_model=list[EventPublicResponse])
 def list_club_events(club_id: int, db: Session = Depends(get_db)) -> list[Event]:
     return event_service.list_club_events(db, club_id)
+
+
+@router.post("/{club_id}/event-poster-upload", response_model=EventPosterUploadResponse)
+def create_event_poster_upload_url(
+    club_id: int,
+    payload: EventPosterUploadRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> EventPosterUploadResponse:
+    club = club_service.get_active_club(db, club_id)
+    club_service.ensure_club_member(db, club.id, current_user)
+    return storage_service.create_event_poster_signed_upload(club.id, payload.content_type)
 
 
 @router.post(

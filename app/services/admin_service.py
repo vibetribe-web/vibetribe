@@ -2,7 +2,7 @@ import hmac
 
 from fastapi import status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.core.exceptions import AppException
@@ -70,7 +70,16 @@ def list_teams(db: Session) -> list[Team]:
 
 
 def list_requests(db: Session) -> list[JoinRequest]:
-    return list(db.scalars(select(JoinRequest).order_by(JoinRequest.id.desc())))
+    return list(
+        db.scalars(
+            select(JoinRequest)
+            .options(
+                joinedload(JoinRequest.team).load_only(Team.id, Team.name),
+                joinedload(JoinRequest.from_user).load_only(User.id, User.username, User.name),
+            )
+            .order_by(JoinRequest.id.desc())
+        )
+    )
 
 
 def update_admin_status(db: Session, user_id: int, is_admin: bool, acting_user: User) -> User:

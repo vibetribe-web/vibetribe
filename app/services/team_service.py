@@ -56,6 +56,27 @@ def list_teams(db: Session, user: User) -> list[TeamRead]:
     return [build_team_response(team, user, pending_team_ids) for team in teams]
 
 
+def list_user_team_details(db: Session, user: User, event_only: bool = False) -> list[TeamRead]:
+    statement = (
+        select(Team)
+        .join(TeamMember, TeamMember.team_id == Team.id)
+        .where(TeamMember.user_id == user.id)
+        .options(
+            selectinload(Team.leader),
+            selectinload(Team.event),
+            selectinload(Team.memberships).selectinload(TeamMember.user),
+            selectinload(Team.required_skill_entities),
+        )
+        .order_by(Team.id)
+    )
+    if event_only:
+        statement = statement.where(Team.event_id.is_not(None))
+
+    teams = list(db.scalars(statement))
+    pending_team_ids = get_pending_request_team_ids(db, user.id)
+    return [build_team_response(team, user, pending_team_ids) for team in teams]
+
+
 def get_team(db: Session, team_id: int) -> Team:
     team = db.get(Team, team_id)
     if team is None:

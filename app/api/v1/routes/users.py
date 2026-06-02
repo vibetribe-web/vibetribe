@@ -5,8 +5,9 @@ from app.core.security import get_current_user
 from app.db.database import get_db
 from app.models.user import User
 from app.schemas.event import EventPublicResponse
+from app.schemas.team import TeamRead
 from app.schemas.user import UsernameUpdate, UsernameUpdateResponse, UserPublicResponse, UserRead, UserUpdate
-from app.services import event_service, user_service
+from app.services import event_service, team_service, user_service
 
 router = APIRouter()
 
@@ -40,6 +41,22 @@ def list_my_interested_events(
     current_user: User = Depends(get_current_user),
 ) -> list[EventPublicResponse]:
     return event_service.list_interested_events(db, current_user)
+
+
+@router.get("/me/teams", response_model=list[TeamRead])
+def list_my_team_details(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[TeamRead]:
+    return team_service.list_user_team_details(db, current_user)
+
+
+@router.get("/me/event-teams", response_model=list[TeamRead])
+def list_my_event_team_details(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[TeamRead]:
+    return team_service.list_user_team_details(db, current_user, event_only=True)
 
 
 @router.get("/", response_model=list[UserPublicResponse])
