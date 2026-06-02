@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
@@ -7,7 +7,7 @@ from app.models.club import Club
 from app.models.event import Event
 from app.models.user import User
 from app.schemas.club import ClubMemberActionResponse, ClubMemberResponse, ClubPublicResponse
-from app.schemas.event import EventCreate, EventPosterUploadRequest, EventPosterUploadResponse, EventPublicResponse, EventUpdate
+from app.schemas.event import EventCreate, EventPosterUploadResponse, EventPublicResponse, EventUpdate
 from app.services import club_service, event_service, storage_service
 
 router = APIRouter()
@@ -78,15 +78,15 @@ def list_club_events(club_id: int, db: Session = Depends(get_db)) -> list[Event]
 
 
 @router.post("/{club_id}/event-poster-upload", response_model=EventPosterUploadResponse)
-def create_event_poster_upload_url(
+async def upload_event_poster(
     club_id: int,
-    payload: EventPosterUploadRequest,
+    poster: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> EventPosterUploadResponse:
     club = club_service.get_active_club(db, club_id)
     club_service.ensure_club_member(db, club.id, current_user)
-    return storage_service.create_event_poster_signed_upload(club.id, payload.content_type)
+    return await storage_service.upload_event_poster(club.id, poster)
 
 
 @router.post(

@@ -56,14 +56,8 @@ class EventUpdate(BaseModel):
         return stripped or None
 
 
-class EventPosterUploadRequest(BaseModel):
-    content_type: str
-
-
 class EventPosterUploadResponse(BaseModel):
     path: str
-    token: str
-    signed_url: str
     public_url: str
 
 
